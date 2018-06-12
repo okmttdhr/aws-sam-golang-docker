@@ -2,7 +2,7 @@ version: '3'
 services:
   sam-local:
     build: .
-    command: ./script.sh
+    command: ./scripts/start-server.sh
     ports:
       - '3000:3000'
     # no volumes
@@ -15,7 +15,7 @@ services:
       - .env
 
   go:
-    command: ./gobuild.sh
+    command: ./scripts/gobuild.sh
     build:
       context: ./
       dockerfile: ./Dockerfile_go
