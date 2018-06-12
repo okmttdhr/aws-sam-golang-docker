@@ -1,0 +1,31 @@
+version: '3'
+services:
+  sam-local:
+    build: .
+    command: ./script.sh
+    ports:
+      - '3000:3000'
+    # no volumes
+    depends_on:
+      - db
+      - go
+    environment:
+      - VOLUME=$PWD
+    env_file:
+      - .env
+
+  go:
+    command: ./gobuild.sh
+    build:
+      context: ./
+      dockerfile: ./Dockerfile_go
+
+  db:
+    environment:
+      - MYSQL_ROOT_PASSWORD=docker
+      - MYSQL_PASSWORD=docker
+      - MYSQL_USER=docker
+      - MYSQL_DATABASE=reportdb
+    build: ./docker/mysql
+    ports:
+      - "3306:3306"
