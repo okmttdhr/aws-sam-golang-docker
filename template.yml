@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ProjectName:
+    Type: String
+  Stage:
+    Type: String
+    AllowedValues:
+      - prod
+      - stg
+    Default: stg
+
+Resources:
+  HelloFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join [ "-", [ !Ref ProjectName, !Ref Stage, HelloFunction ] ]
+      AutoPublishAlias: !Ref Stage
+      Handler: main
+      Runtime: go1.x
+      Tracing: Active
+      Environment:
+        Variables:
+          Stage: !Ref Stage
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /
+            Method: post
