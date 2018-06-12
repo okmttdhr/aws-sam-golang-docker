@@ -1,0 +1,92 @@
+defaults: &defaults
+  docker:
+    - image: ubuntu:16.04
+  environment:
+    COMPOSE_INTERACTIVE_NO_CLI: 1 # https://github.com/docker/compose/issues/5659
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/aws-sam-golang-docker
+    <<: *defaults
+    steps:
+      - run:
+          name: Install curl
+          command: apt-get update && apt-get install curl -y
+      - run:
+          name: Install Docker Compose
+          command: |
+            set -x
+            curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: pwd and env
+          command: pwd && env |sort
+      - run:
+          name: create .env file
+          command: |
+            ./scripts/create_ci_envfile.sh
+      - run:
+          name: docker-compose build
+          command: docker-compose -f docker-compose.yml.ci build
+      - run:
+          name: go tests
+          command: docker-compose -f docker-compose.yml.ci run go go test
+
+  deploy:
+    working_directory: /var/opt
+    <<: *defaults
+    steps:
+      - run:
+          name: Install curl
+          command: |
+            apt-get update && apt-get install -y curl
+      - run:
+          name: Install Docker Compose
+          command: |
+            set -x
+            curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: pwd and env
+          command: pwd && env |sort
+      - run:
+          name: create .env file
+          command: |
+            ./scripts/create_ci_envfile.sh
+      - run:
+          name: docker-compose build
+          command: docker-compose -f docker-compose.yml.ci build
+      - run:
+          name: package & deploy
+          command: |
+            docker-compose -f docker-compose.yml.ci run sam-local bash -c \
+            "\
+            sam package \
+              --template-file ./template.yml \
+              --s3-bucket $StackName \
+              --output-template-file ./packaged.yml && \
+            sam deploy \
+              --template-file ./packaged.yml \
+              --stack-name $StackName \
+              --capabilities CAPABILITY_IAM \
+              --no-fail-on-empty-changeset \
+              --parameter-overrides $(cat .env | tr '\n' ' ')\
+            "
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master
+                - release
